@@ -1,10 +1,11 @@
 import torch
-import torchvision
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torchvision.datasets import MNIST
+from torch.utils.data import DataLoader, random_split
+from torch.optim.lr_scheduler import StepLR
 from PIL import Image
 
 # Define the neural network architecture
@@ -56,6 +57,18 @@ def test(model, test_loader, criterion, device):
     accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, accuracy
 
+#classify image from path 
+def whatsThatNumber(model, imagePath):
+    image = Image.open(imagePath).convert('L')  # Convert to grayscale
+    transform = transforms.Compose([transforms.Resize((28, 28)),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.5,), (0.5,))])
+    image = transform(image).unsqueeze(0)  # Add batch dimension
+    output = model(image)
+    _, predicted = torch.max(output, 1)
+    return predicted.item()
+
+
 #define constant parameters 
 
 inputSize = 784
@@ -69,9 +82,9 @@ dataPath = './MNISTDATA'
 
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 dataset = MNIST(root=dataPath, train=True, download=False, transform=transform)
-train_set, val_set = random_split(dataset, [50000, 10000])
-train_loader = DataLoader(train_set, batch_size=batchSize, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_set, batch_size=batchSize, shuffle=False, num_workers=4)
+trainSet, valSet = random_split(dataset, [50000, 10000])
+trainLoader = DataLoader(trainSet, batch_size=batchSize, shuffle=True, num_workers=4)
+valLoader = DataLoader(valSet, batch_size=batchSize, shuffle=False, num_workers=4)
     
 #Define loss function and optimizer
 model = ANN(inputSize, outputSize)
@@ -80,3 +93,19 @@ optimizer = optim.Adam(model.parameters(), lr=learningRate)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 scheduler = StepLR(optimizer, step_size=1, gamma=0.7)
+
+# Training Loop
+for epoch in range(numEpochs):
+    train(model, trainLoader, optimizer, criterion, device)
+    valLoss, valAccuracy = test(model, valLoader, criterion, device)
+    print(f"Epoch {epoch+1}/{numEpochs}, Val Loss: {valLoss:.4f}, Val Acc: {valAccuracy:.2f}%")
+    scheduler.step()
+
+# Test
+testSet = MNIST(root=dataPath, train=False, download=False, transform=transform)
+testLoader = DataLoader(testSet, batch_size=batchSize, shuffle=False, num_workers=4)
+testLoss, test_accuracy = test(model, testLoader, criterion, device)
+print(f"Test Loss: {testLoss:.4f}, Test Acc: {test_accuracy:.2f}%")
+
+imagePath = input("Enter an image path")
+print(whatsThatNumber(model, imagePath))
