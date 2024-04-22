@@ -55,3 +55,28 @@ def test(model, test_loader, criterion, device):
     test_loss /= len(test_loader.dataset)
     accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, accuracy
+
+#define constant parameters 
+
+inputSize = 784
+outputSize = 10
+numEpochs = 5
+batchSize = 100
+learningRate = 0.001
+dataPath = './MNISTDATA'
+
+#Define transformation and load the MNIST dataset
+
+transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+dataset = MNIST(root=dataPath, train=True, download=False, transform=transform)
+train_set, val_set = random_split(dataset, [50000, 10000])
+train_loader = DataLoader(train_set, batch_size=batchSize, shuffle=True, num_workers=4)
+val_loader = DataLoader(val_set, batch_size=batchSize, shuffle=False, num_workers=4)
+    
+#Define loss function and optimizer
+model = ANN(inputSize, outputSize)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=learningRate)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+scheduler = StepLR(optimizer, step_size=1, gamma=0.7)
